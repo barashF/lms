@@ -11,19 +11,23 @@ import (
 	"syscall"
 	"time"
 
+	orderHandler "github.com/barashF/lms/service-order/internal/handler/order"
+	"github.com/barashF/lms/service-order/internal/logger"
+	"github.com/barashF/lms/service-order/internal/publisher"
+	orderRepo "github.com/barashF/lms/service-order/internal/repository/order"
+	"github.com/barashF/lms/service-order/internal/repository/outbox"
+	"github.com/barashF/lms/service-order/internal/repository/utils/transaction"
+	orderServ "github.com/barashF/lms/service-order/internal/service/order"
+	"github.com/barashF/lms/service-order/pkg/database"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
-
-	courseHandler "github.com/barashF/lms/service-course/internal/handler/course"
-	"github.com/barashF/lms/service-course/internal/logger"
-	courseRepo "github.com/barashF/lms/service-course/internal/repository/course"
-	"github.com/barashF/lms/service-course/internal/repository/utils/transaction"
-	courseService "github.com/barashF/lms/service-course/internal/service/course"
-	"github.com/barashF/lms/service-course/pkg/database"
 )
 
 func main() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	appLogger, err := logger.NewZapAdapter()
 	if err != nil {
 		log.Fatalf("failed initialize logger: %v", err)
@@ -37,11 +41,21 @@ func main() {
 
 	dbPool := database.MustInitDB()
 	transactionManager := transaction.NewManager(dbPool)
-	courseRepo := courseRepo.NewRepository(transactionManager, appLogger)
-	courseService := courseService.NewService(courseRepo)
+	orderRepository := orderRepo.NewRepository(transactionManager)
+	outboxRepository := outbox.NewRepository(transactionManager)
+	orderService := orderServ.NewService(orderRepository, outboxRepository, transactionManager, appLogger)
+
+	kafkaPublisher, err := publisher.NewKafkaPublisher([]string{"kafka-1:9092", "kafka-2:9092", "kafka-3:9092"})
+	if err != nil {
+		log.Fatalf("Failed to create Kafka publisher: %v", err)
+	}
+	defer kafkaPublisher.Close()
+	workerPublicher := publisher.NewPublisher(outboxRepository, kafkaPublisher, appLogger, time.Second*10, 5)
+	go workerPublicher.Start(ctx)
+
 	startServer(
 		dbPool,
-		courseHandler.NewController(courseService),
+		orderHandler.NewController(orderService),
 		resolvePort(),
 		appLogger,
 	)
@@ -49,13 +63,13 @@ func main() {
 
 func startServer(
 	dbPool *pgxpool.Pool,
-	courseHandler *courseHandler.Controller,
+	orderHandler *orderHandler.Controller,
 	port string,
 	appLogger logger.Logger,
 ) {
 	srv := &http.Server{
 		Addr:    ":" + port,
-		Handler: initRouter(courseHandler),
+		Handler: initRouter(orderHandler),
 	}
 	appLogger.Info("Server started on ", logger.NewField("address", srv.Addr))
 
@@ -67,7 +81,7 @@ func startServer(
 	}()
 
 	waitGracefullShutdown(srv, dbPool, serverErr, appLogger)
-	appLogger.Info("Shutting down service-course")
+	appLogger.Info("Shutting down service-order")
 }
 
 func resolvePort() string {
@@ -87,13 +101,11 @@ func resolvePort() string {
 	return port
 }
 
-func initRouter(course *courseHandler.Controller) *chi.Mux {
+func initRouter(order *orderHandler.Controller) *chi.Mux {
 	r := chi.NewRouter()
 
-	r.Get("/courses", course.GetMany)
-	r.Route("/course", func(r chi.Router) {
-		r.Get("/{id}", course.Get)
-		r.Post("/", course.Create)
+	r.Route("/order", func(r chi.Router) {
+		r.Post("/", order.Create)
 	})
 	return r
 }

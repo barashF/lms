@@ -1,0 +1,46 @@
+// payments.proto
+syntax = "proto3";
+
+// Пакет для определённых сущностей и служб
+package payments.v1;
+
+// Определяем пространство имен для генерации Go-кода
+option go_package = "./;payments";
+
+// Импортируем стандартные типы Google
+import "google/protobuf/timestamp.proto";
+
+
+message Payment {
+  string id = 1;
+  string user_id = 2;
+  string order_id = 3;
+  int64 amount = 4;
+  string currency = 5;
+  string status = 6;
+  string payment_method = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+message GetPaymentsRequest {
+  google.protobuf.Timestamp from = 1;
+}
+
+message GetPaymentByOrderIDRequest {
+  string id = 1;
+}
+
+message GetPaymentsResponse {
+  repeated Payment payments = 1;
+}
+
+message GetPaymentByOrderIDResponse {
+  Payment payment = 1;
+}
+
+
+service PaymentsService {
+  rpc GetPayments(GetPaymentsRequest) returns (GetPaymentsResponse);
+  rpc GetPaymentByOrderID(GetPaymentByOrderIDRequest) returns (GetPaymentByOrderIDResponse);
+}

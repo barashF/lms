@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package orders.v1;
+
+option go_package = "./;orders";
+
+// Импортируем стандартные типы Google
+import "google/protobuf/timestamp.proto";
+
+message Order {
+  string id = 1;
+  string user_id = 2;
+  string course_id = 3;
+  string status = 4;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+message GetOrdersRequest {
+  google.protobuf.Timestamp from = 1;
+}
+
+message GetOrderByIDRequest {
+  string id = 1;
+}
+
+message GetOrdersResponse {
+  repeated Order orders = 1;
+}
+
+message GetOrderByIDResponse {
+  Order order = 1;
+}
+
+service OrdersService {
+  rpc GetOrders(GetOrdersRequest) returns (GetOrdersResponse);
+  rpc GetOrderByID(GetOrderByIDRequest) returns (GetOrderByIDResponse);
+}

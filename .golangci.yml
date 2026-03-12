@@ -1,0 +1,56 @@
+version: "2"
+run:
+    issues-exit-code: 1
+    tests: true
+output:
+    formats:
+        text:
+            path: stdout
+            print-linter-name: true
+            print-issued-lines: true
+linters:
+    default: none
+    enable:
+        - loglint
+        - errcheck
+        - ineffassign
+        - makezero
+        - staticcheck
+        - asciicheck
+    settings:
+        staticcheck:
+            checks:
+                - all
+                - -ST1000
+        loglint:
+            sensitive-keywords:
+                - password
+                - api_key
+                - secret_token
+                - access_token
+
+            disable-rules:
+                - special-chars
+
+    exclusions:
+        generated: lax
+        paths:
+            - migrations
+            - docs
+            - third_party$
+formatters:
+    enable:
+        - gci
+    settings:
+        gci:
+            custom-order: true
+            sections:
+                - standard
+                - default
+                - prefix(github.com/barashF/lms)
+    exclusions:
+        generated: lax
+        paths:
+            - migrations
+            - docs
+            - third_party$

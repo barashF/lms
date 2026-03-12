@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package profiles.v1;
+
+option go_package = "./;profiles";
+
+import "google/protobuf/timestamp.proto";
+
+message Profile {
+  string user_id = 1;
+  string first_name = 2;
+  string last_name = 3;
+  string tier = 4;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+message GetProfileByUserIDRequest {
+  string user_id = 1;
+}
+
+message GetProfileByUserIDResponse {
+  Profile profile = 1;
+}
+
+service ProfilesService {
+  rpc GetProfileByUserID(GetProfileByUserIDRequest) returns (GetProfileByUserIDResponse);
+}
